@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local Python environment
+.conda/
+
+# Workspace settings
+.vscode/
+
+# Data folders (do not upload)
+voice_data/
+tmp_preproc_3s_16k_mono/
+
+# Generated model/data artifacts
+*.joblib
+*.pkl
+*.csv

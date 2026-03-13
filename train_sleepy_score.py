@@ -1,6 +1,6 @@
 import pandas as pd
 import joblib
-
+import numpy as np
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
@@ -12,7 +12,6 @@ MODEL_OUT = "sleepy_opensmile_logreg.joblib"
 
 def main():
     df = pd.read_csv(CSV)
-
     y = df["label_sleepy"].astype(int).values
     speaker = df["speaker"].astype(str).values
 
@@ -24,7 +23,7 @@ def main():
     train_idx = speaker != TEST_SPEAKER
     test_idx = speaker == TEST_SPEAKER
 
-    if test_idx.sum() == 0:
+    if not np.any(test_idx):
         raise RuntimeError(f"No rows for TEST_SPEAKER={TEST_SPEAKER}. Available speakers: {sorted(set(speaker))}")
 
     model = Pipeline([
