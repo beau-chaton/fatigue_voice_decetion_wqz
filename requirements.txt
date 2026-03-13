@@ -1,0 +1,10 @@
+numpy==2.4.3
+pandas==3.0.1
+scikit-learn==1.8.0
+joblib==1.5.3
+opensmile==2.6.0
+librosa==0.11.0
+soundfile==0.13.1
+sounddevice==0.5.5
+webrtcvad-wheels==2.0.14
+scipy==1.17.1

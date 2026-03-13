@@ -14,7 +14,6 @@ def main():
     df = pd.read_csv(CSV)
     y = df["label_sleepy"].astype(int).values
     speaker = df["speaker"].astype(str).values
-
     drop_cols = {"path", "path_3s", "speaker", "label_sleepy", "folder", "sr", "window_seconds"}
     feature_cols = [c for c in df.columns if c not in drop_cols]
 
