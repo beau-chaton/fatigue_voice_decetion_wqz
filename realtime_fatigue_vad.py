@@ -21,7 +21,7 @@ CHANNELS = 1
 WINDOW_SECONDS = 3.0           # 每次判定用 3 秒
 HOP_SECONDS = 3.0              # 每隔多久更新一次（=3s 就是不重叠；改成 1s 就是重叠滑窗）
 VAD_FRAME_MS = 30              # webrtcvad 支持 10/20/30 ms
-VAD_MODE = 2                   # 0-3 越大越激进(更容易判成语音). 一般 2 或 3
+VAD_MODE = 1                   # 0-3 越大越激进(更容易判成语音). 一般 2 或 3
 MIN_SPEECH_RATIO = 0.35        # 3 秒窗口中，语音帧比例低于这个就认为“无有效语音”
 
 EMA_ALPHA = 0.8                # 平滑系数：越大越跟随当前，越小越平滑
