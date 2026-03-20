@@ -11,6 +11,7 @@ __pycache__/
 # Data folders (do not upload)
 voice_data/
 tmp_preproc_3s_16k_mono/
+third_party/
 
 # Generated model/data artifacts
 *.joblib
