@@ -9,6 +9,7 @@ realtime_fatigue_silero_vad.py
 pip install torch torchaudio sounddevice numpy opensmile joblib soundfile pandas
 """
 
+
 import sys
 import time
 import tempfile
