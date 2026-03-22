@@ -1,33 +1,20 @@
-"""
-realtime_fatigue_silero_vad.py
-
-Silero VAD（是否有人说话） + openSMILE 特征 + joblib 疲劳模型（P(Sleepy)=fatigue_score）
-
-API 版本特性：
-- 支持从 wav_path / wav_url 读取音频（优先 wav_path）
-- 自动转 mono、重采样到 16k（默认开启）
-- 模型/openSMILE/Silero 全局只加载一次
-- 每个 session 只保存 ema_score 一个 float（更省资源）
-- “是否有人说话”判断仍从 third_party/silero-vad 加载 get_speech_timestamps（路径不改）
-- 返回三分类权重 energetic/normal/fatigue（和为1，且按阈值保证当前状态最大）
-"""
-
 import io
 import sys
-import time
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import sounddevice as sd
+
 import torch
 import joblib
 import opensmile
 import soundfile as sf
 from scipy.signal import resample_poly
 import requests
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from pydantic import BaseModel
 
 
 # =========================
@@ -39,10 +26,6 @@ SILERO_REPO_DIR = Path("third_party/silero-vad")
 SILERO_JIT_PATH = Path("assets/silero_vad.jit")
 
 SR = 16000
-CHANNELS = 1
-
-WINDOW_SECONDS = 3.0
-HOP_SECONDS = 3.0
 
 MIN_SPEECH_RATIO = 0.12
 
@@ -55,20 +38,7 @@ FATIGUED_THRESHOLD = 0.7
 ENERGETIC_THRESHOLD = 0.4
 FATIGUE_THRESHOLD = 0.7
 
-DEBUG_SAVE_LAST_WAV = False
-DEBUG_WAV_PATH = Path("debug_last_window_16k.wav")
-
 MISSING_FEATURE_WARN_RATIO = 0.05
-
-
-# =========================
-# CLI record (可保留)
-# =========================
-def record_window(sr: int, seconds: float) -> np.ndarray:
-    n = int(sr * seconds)
-    audio = sd.rec(n, samplerate=sr, channels=CHANNELS, dtype="float32")
-    sd.wait()
-    return audio[:, 0]
 
 
 def audio_sanity_check(audio_f32: np.ndarray) -> tuple[bool, str]:
@@ -177,7 +147,7 @@ def three_state_weights(
 
     if s < low:
         energetic = (low - s) / low  # 1 -> 0
-        normal = s / low             # 0 -> 1
+        normal = s / low  # 0 -> 1
         fatigue = 0.0
         # 压 normal，保证 energetic 在整个 (0, low) 都最大
         normal = normal * normal
@@ -387,9 +357,7 @@ def predict_audio(
             "note": f"audio_invalid: {reason}",
         }
 
-    speech_ratio = detect_speech_ratio_silero(
-        audio_f32, sr, global_.silero_model, global_.get_speech_timestamps_fn
-    )
+    speech_ratio = detect_speech_ratio_silero(audio_f32, sr, global_.silero_model, global_.get_speech_timestamps_fn)
     speaking = speech_ratio >= MIN_SPEECH_RATIO
 
     if not speaking:
@@ -425,10 +393,7 @@ def predict_audio(
     raw = float(global_.model.predict_proba(x)[0, 1])
 
     prev = _SESSION_EMA.get(sid, None)
-    if prev is None:
-        ema = raw
-    else:
-        ema = (1 - EMA_ALPHA) * prev + EMA_ALPHA * raw
+    ema = raw if prev is None else (1 - EMA_ALPHA) * prev + EMA_ALPHA * raw
     _SESSION_EMA[sid] = ema
 
     fatigued = ema >= FATIGUED_THRESHOLD
@@ -497,43 +462,97 @@ def predict_from_source(
 
 
 # =========================
-# CLI main (可选)
+# FastAPI Server
 # =========================
-def main():
-    print("[INIT] loading global components:", MODEL_PATH.resolve())
+app = FastAPI(title="Realtime Silero VAD + Fatigue API", version="1.0.0")
+
+
+class PredictRequest(BaseModel):
+    wav_path: str | None = None
+    wav_url: str | None = None
+    session_id: str | None = None
+    options: dict | None = None
+
+
+class SessionResetRequest(BaseModel):
+    session_id: str | None = None
+
+
+@app.on_event("startup")
+def _startup_load_models():
     _ = get_global_components()
-    print("[READY] realtime fatigue scoring + silero VAD (CLI)")
-
-    session_id = "default"
-
-    while True:
-        t0 = time.time()
-        audio = record_window(SR, WINDOW_SECONDS)
-
-        if DEBUG_SAVE_LAST_WAV:
-            sf.write(str(DEBUG_WAV_PATH), audio, SR)
-
-        out = predict_audio(audio_f32=audio, sr=SR, session_id=session_id)
-        note = out.get("note", "")
-        note_suffix = f" | {note}" if note else ""
-
-        if not out["speaking"]:
-            score_str = "--" if out["fatigue_score"] is None else f'{out["fatigue_score"]:.3f}'
-            print(
-                f"[无人说话] speech_ratio={out['speech_ratio']:.3f} "
-                f"fatigue_score={score_str} fatigued={out['fatigued']} "
-                f"weights={out['state_weights']}{note_suffix}"
-            )
-        else:
-            print(
-                f"[有人说话] speech_ratio={out['speech_ratio']:.3f} "
-                f"fatigue_score_raw={out['fatigue_score_raw']:.3f} fatigue_score={out['fatigue_score']:.3f} "
-                f"fatigued={out['fatigued']} weights={out['state_weights']}{note_suffix}"
-            )
-
-        elapsed = time.time() - t0
-        time.sleep(max(0.0, HOP_SECONDS - elapsed))
 
 
-if __name__ == "__main__":
-    main()
+@app.get("/healthz")
+def healthz():
+    try:
+        _ = get_global_components()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/predict")
+def predict(req: PredictRequest):
+    try:
+        return predict_from_source(
+            wav_path=req.wav_path,
+            wav_url=req.wav_url,
+            session_id=req.session_id,
+            options=req.options,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/predict_file")
+async def predict_file(
+    file: UploadFile = File(...),
+    session_id: str | None = None,
+    resample_to_16k: bool = True,
+):
+    """
+    上传 wav 文件进行预测。
+    - file: multipart/form-data file
+    - session_id: query param（可选）
+    - resample_to_16k: query param（默认 True）
+    """
+    try:
+        content = await file.read()
+        bio = io.BytesIO(content)
+
+        audio, sr_in = sf.read(bio, always_2d=True)  # (n, c)
+        ch_in = int(audio.shape[1])
+
+        audio_mono = _ensure_mono(_to_float32(audio))
+
+        sr_used = int(sr_in)
+        if resample_to_16k:
+            audio_mono = _resample(audio_mono, sr_in=sr_in, sr_out=SR)
+            sr_used = SR
+
+        core = predict_audio(audio_f32=audio_mono, sr=sr_used, session_id=session_id)
+
+        return {
+            "ok": True,
+            "session_id": _get_sid(session_id),
+            "input": {
+                "source_kind": "upload",
+                "source_value": file.filename,
+                "sr_in": int(sr_in),
+                "sr_used": int(sr_used),
+                "channels_in": int(ch_in),
+                "duration_sec": float(len(audio_mono)) / float(sr_used) if sr_used > 0 else 0.0,
+            },
+            "output": core,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/session/reset")
+def session_reset(req: SessionResetRequest):
+    sid = _get_sid(req.session_id)
+    existed = sid in _SESSION_EMA
+    _SESSION_EMA.pop(sid, None)
+    return {"ok": True, "session_id": sid, "existed": existed}

@@ -8,6 +8,11 @@ soundfile==0.13.1
 sounddevice==0.5.5
 webrtcvad-wheels==2.0.14
 scipy==1.17.1
+requests==2.32.5
+fastapi==0.121.0
+pydantic==2.12.3
+uvicorn==0.38.0
+python-multipart==0.0.20
 
 # Silero VAD (realtime_fatigue_silero_vad.py)
 torch>=2.0.0

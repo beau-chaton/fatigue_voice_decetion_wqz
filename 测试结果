@@ -1,0 +1,35 @@
+输入：
+{
+  "wav_path": "F:\\Item\\voice_fatigue\\fatigue_voice_detection_wqz\\voice_data\\openslr\\bea_Sleepy\\sleepiness_1-28_0007.wav",
+  "session_id": "test_bea_0007",
+  "options": {
+    "resample_to_16k": true,
+    "timeout_sec": 10.0
+  }
+}
+输出：
+{
+    "ok": true,
+    "session_id": "test_bea_0007",
+    "input": {
+        "source_kind": "path",
+        "source_value": "F:\\Item\\voice_fatigue\\fatigue_voice_detection_wqz\\voice_data\\openslr\\bea_Sleepy\\sleepiness_1-28_0007.wav",
+        "sr_in": 44100,
+        "sr_used": 16000,
+        "channels_in": 1,
+        "duration_sec": 4.970634920634921
+    },
+    "output": {
+        "speaking": true,
+        "speech_ratio": 0.816788422124706,
+        "fatigue_score_raw": 0.9999974090668186,
+        "fatigue_score": 0.9999974090668186,
+        "fatigued": true,
+        "state_weights": {
+            "energetic": 0.0,
+            "normal": 7.458822146502763e-11,
+            "fatigue": 0.9999999999254119
+        },
+        "note": ""
+    }
+}
