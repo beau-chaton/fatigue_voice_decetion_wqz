@@ -131,6 +131,7 @@ def three_state_weights(
     fatigue_score: float,
     low: float = ENERGETIC_THRESHOLD,
     high: float = FATIGUE_THRESHOLD,
+    additive: float = 0.2,
 ) -> dict:
     """
     输入 fatigue_score in [0,1]（P(Sleepy) or EMA of it）
@@ -146,6 +147,8 @@ def three_state_weights(
     high = float(high)
     if not (0.0 <= low < high <= 1.0):
         raise ValueError("Require 0<=low<high<=1")
+    if additive < 0.0:
+        raise ValueError("additive must be >= 0")
 
     if s < low:
         energetic = (low - s) / low  # 1 -> 0
@@ -179,6 +182,11 @@ def three_state_weights(
         normal = (1.0 - t)
         fatigue = 1.0
         normal = normal * normal
+
+    if additive > 0.0:
+        energetic += additive
+        normal += additive
+        fatigue += additive
 
     w_sum = energetic + normal + fatigue
     if w_sum <= 0:
@@ -399,7 +407,8 @@ def predict_audio(
     _SESSION_EMA[sid] = ema
 
     fatigued = ema >= FATIGUED_THRESHOLD
-    weights = three_state_weights(ema)
+    # Smooth the speaking-state weights to avoid over-sharp 1/0/0 outputs.
+    weights = three_state_weights(ema, additive=0.2)
 
     return {
         "speaking": True,
