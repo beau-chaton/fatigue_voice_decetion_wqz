@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from contextlib import asynccontextmanager
+
 import numpy as np
 
 import torch
@@ -188,9 +190,9 @@ def three_state_weights(
     fatigue /= w_sum
 
     return {
-        "energetic": float(energetic),
-        "normal": float(normal),
-        "fatigue": float(fatigue),
+        "energetic": round(float(energetic), 2),
+        "normal": round(float(normal), 2),
+        "fatigue": round(float(fatigue), 2),
     }
 
 
@@ -464,7 +466,14 @@ def predict_from_source(
 # =========================
 # FastAPI Server
 # =========================
-app = FastAPI(title="Realtime Silero VAD + Fatigue API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    _ = get_global_components()
+    yield
+    # Shutdown (if needed)
+
+app = FastAPI(title="Realtime Silero VAD + Fatigue API", version="1.0.0", lifespan=lifespan)
 
 
 class PredictRequest(BaseModel):
@@ -476,11 +485,6 @@ class PredictRequest(BaseModel):
 
 class SessionResetRequest(BaseModel):
     session_id: str | None = None
-
-
-@app.on_event("startup")
-def _startup_load_models():
-    _ = get_global_components()
 
 
 @app.get("/healthz")
@@ -556,3 +560,11 @@ def session_reset(req: SessionResetRequest):
     existed = sid in _SESSION_EMA
     _SESSION_EMA.pop(sid, None)
     return {"ok": True, "session_id": sid, "existed": existed}
+
+
+# =========================
+# Direct run support (optional)
+# =========================
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
