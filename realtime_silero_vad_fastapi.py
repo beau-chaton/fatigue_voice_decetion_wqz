@@ -190,9 +190,9 @@ def three_state_weights(
     fatigue /= w_sum
 
     return {
-        "energetic": round(float(energetic), 2),
-        "normal": round(float(normal), 2),
-        "fatigue": round(float(fatigue), 2),
+        "energetic": round(float(energetic), 5),
+        "normal": round(float(normal), 5),
+        "fatigue": round(float(fatigue), 5),
     }
 
 
