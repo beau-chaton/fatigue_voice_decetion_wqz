@@ -208,15 +208,26 @@ def predict_from_source(
 
     core = predict_audio(audio_f32=audio, sr=sr_in, session_id=session_id)
 
-    result = {
-        "code": 200,
-        "msg": "操作成功",
-        "data": {
-            "session_id": _get_sid(session_id),
-            "fatigued": core["fatigued"],
-            "state_weights": core["state_weights"],
-        },
-    }
+    sid = _get_sid(session_id)
+
+    if not core["speaking"]:
+        result = {
+            "code": 500,
+            "msg": "未检测到人声",
+        }
+    else:
+        result = {
+            "code": 200,
+            "msg": "操作成功",
+            "data": {
+                "session_id": sid,
+                "fatigued": core["fatigued"],
+                "state_weights": core["state_weights"],
+            },
+        }
+
+    # 返回前清理对应的 session_id EMA 状态
+    _SESSION_EMA.pop(sid, None)
 
     if cfg.debug:
         print(f"[DEBUG] predict_from_source output: {result}")
