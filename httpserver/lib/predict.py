@@ -164,7 +164,7 @@ def predict_audio(
 
     # 4. 特征对齐 → 推理 → EMA → 状态权重
     x = _align_features_with_warning(global_, feats)
-    raw = float(global_.model.predict_proba(x)[0, 1])
+    raw = float(global_.model.predict_proba(x.values)[0, 1])
 
     prev = _SESSION_EMA.get(sid, None)
     ema = raw if prev is None else (1 - EMA_ALPHA) * prev + EMA_ALPHA * raw
