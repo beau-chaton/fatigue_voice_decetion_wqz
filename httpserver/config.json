@@ -24,5 +24,7 @@
         "energetic_threshold": 0.4,
         "fatigue_threshold": 0.7,
         "additive": 0.2
-    }
+    },
+    "debug": true
 }
+

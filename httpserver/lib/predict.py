@@ -186,31 +186,29 @@ def predict_from_source(
             - timeout_sec     (float, 默认 10.0，仅 URL 模式有效)
 
     Returns:
-        dict: ok, session_id, input{...}, output{...}
+        dict: code, msg, data{session_id, fatigued, state_weights}
     """
     options = options or {}
     resample_to_16k = bool(options.get("resample_to_16k", True))
     timeout_sec = float(options.get("timeout_sec", 10.0))
 
+    if cfg.debug:
+        print(f"[DEBUG] predict_from_source input: wav_path={wav_path}, wav_url={wav_url}, session_id={session_id}, options={options}")
+
     if wav_path:
-        audio, sr_in, ch_in, dur = load_wav_from_path(wav_path)
-        src_kind = "path"
-        src_value = wav_path
+        audio, sr_in, _, _ = load_wav_from_path(wav_path)
     elif wav_url:
-        audio, sr_in, ch_in, dur = load_wav_from_url(wav_url, timeout_sec=timeout_sec)
-        src_kind = "url"
-        src_value = wav_url
+        audio, sr_in, _, _ = load_wav_from_url(wav_url, timeout_sec=timeout_sec)
     else:
         raise ValueError("Either wav_path or wav_url must be provided")
 
-    sr_used = sr_in
     if resample_to_16k:
         audio = _resample(audio, sr_in=sr_in, sr_out=cfg.sr)
-        sr_used = cfg.sr
+        sr_in = cfg.sr
 
-    core = predict_audio(audio_f32=audio, sr=sr_used, session_id=session_id)
+    core = predict_audio(audio_f32=audio, sr=sr_in, session_id=session_id)
 
-    return {
+    result = {
         "code": 200,
         "msg": "操作成功",
         "data": {
@@ -219,6 +217,11 @@ def predict_from_source(
             "state_weights": core["state_weights"],
         },
     }
+
+    if cfg.debug:
+        print(f"[DEBUG] predict_from_source output: {result}")
+
+    return result
 
 
 def session_ema_reset(session_id: str | None) -> tuple[str, bool]:

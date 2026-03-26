@@ -34,6 +34,7 @@ class _Config:
         self.energetic_threshold: float = 0.4
         self.fatigue_threshold: float = 0.7
         self.additive: float = 0.2
+        self.debug: bool = False
 
     def load(self, path: str | Path | None = None) -> None:
         """
@@ -84,6 +85,9 @@ class _Config:
         self.energetic_threshold = float(scoring.get("energetic_threshold", self.energetic_threshold))
         self.fatigue_threshold = float(scoring.get("fatigue_threshold", self.fatigue_threshold))
         self.additive = float(scoring.get("additive", self.additive))
+
+        # debug
+        self.debug = bool(data.get("debug", self.debug))
 
         self._loaded = True
 
