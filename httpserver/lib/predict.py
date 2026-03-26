@@ -211,17 +211,13 @@ def predict_from_source(
     core = predict_audio(audio_f32=audio, sr=sr_used, session_id=session_id)
 
     return {
-        "ok": True,
-        "session_id": _get_sid(session_id),
-        "input": {
-            "source_kind": src_kind,
-            "source_value": src_value,
-            "sr_in": sr_in,
-            "sr_used": sr_used,
-            "channels_in": ch_in,
-            "duration_sec": dur,
+        "code": 200,
+        "msg": "操作成功",
+        "data": {
+            "session_id": _get_sid(session_id),
+            "fatigued": core["fatigued"],
+            "state_weights": core["state_weights"],
         },
-        "output": core,
     }
 
 

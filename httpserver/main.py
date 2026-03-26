@@ -81,13 +81,15 @@ def predict(req: PredictRequest):
         wav_url    : 远程 WAV URL（与 wav_path 二选一）
         session_id : 会话标识（可选，用于跨帧 EMA）
         options    : { resample_to_16k: bool, timeout_sec: float }
+                   默认: { "resample_to_16k": true, "timeout_sec": 10.0 }
     """
     try:
+        options = req.options or {"resample_to_16k": True, "timeout_sec": 10.0}
         return predict_from_source(
             wav_path=req.wav_path,
             wav_url=req.wav_url,
             session_id=req.session_id,
-            options=req.options,
+            options=options,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
