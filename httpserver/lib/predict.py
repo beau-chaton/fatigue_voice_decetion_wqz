@@ -9,15 +9,7 @@ lib/predict.py
   - predict_audio         : 对 mono float32 音频执行疲劳预测（核心）
   - predict_from_source   : 从 wav_path / wav_url 加载并预测（对外接口）
 
-配置常量（与原文件保持一致）：
-  SR                     = 16000
-  MIN_SPEECH_RATIO       = 0.12
-  EMA_ALPHA              = 0.5
-  FREEZE_WHEN_NO_SPEECH  = True
-  FATIGUED_THRESHOLD     = 0.7
-  ENERGETIC_THRESHOLD    = 0.4
-  FATIGUE_THRESHOLD      = 0.7
-  MISSING_FEATURE_WARN_RATIO = 0.05
+配置参数均从 lib.config.cfg 读取，不再硬编码。
 """
 
 import tempfile
@@ -27,19 +19,11 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
-from lib.audio_io import SR, _resample, load_wav_from_path, load_wav_from_url
+from lib.audio_io import _resample, load_wav_from_path, load_wav_from_url
+from lib.config import cfg
 from lib.model import GlobalComponents, get_global_components
 from lib.scoring import audio_sanity_check, three_state_weights
 from lib.vad import detect_speech_ratio_silero
-
-# ─── 运行时配置 ────────────────────────────────────────────────
-MIN_SPEECH_RATIO = 0.12          # 低于此值视为无语音
-EMA_ALPHA = 0.5                  # EMA 平滑系数
-FREEZE_WHEN_NO_SPEECH = True     # 无语音时保持上一次 EMA 分数
-FATIGUED_THRESHOLD = 0.7         # 判定为疲劳的阈值
-ENERGETIC_THRESHOLD = 0.4        # 三段阈值：精力充沛上限
-FATIGUE_THRESHOLD = 0.7          # 三段阈值：疲劳下限
-MISSING_FEATURE_WARN_RATIO = 0.05  # 特征缺失比例超过此值时打印警告
 
 # ─── Session EMA 状态 ─────────────────────────────────────────
 _SESSION_EMA: dict[str, float | None] = {}
@@ -63,7 +47,7 @@ def _align_features_with_warning(global_: GlobalComponents, feats: Any) -> Any:
 
     if missing_count > 0 and not global_.warned_missing_features:
         missing_ratio = missing_count / max(1, len(global_.feature_cols))
-        if missing_ratio >= MISSING_FEATURE_WARN_RATIO:
+        if missing_ratio >= cfg.missing_feature_warn_ratio:
             missing_cols = list(x.columns[missing_mask])[:20]
             print(
                 "[WARN] openSMILE feature columns mismatch.\n"
@@ -111,14 +95,14 @@ def predict_audio(
     ok, reason = audio_sanity_check(audio_f32)
     if not ok:
         ema = _SESSION_EMA.get(sid, None)
-        score = ema if FREEZE_WHEN_NO_SPEECH else None
+        score = ema if cfg.freeze_when_no_speech else None
         weights = None if score is None else three_state_weights(score)
         return {
             "speaking": False,
             "speech_ratio": 0.0,
             "fatigue_score_raw": None,
             "fatigue_score": score,
-            "fatigued": bool(score is not None and score >= FATIGUED_THRESHOLD),
+            "fatigued": bool(score is not None and score >= cfg.fatigued_threshold),
             "state_weights": weights,
             "note": f"audio_invalid: {reason}",
         }
@@ -127,18 +111,18 @@ def predict_audio(
     speech_ratio = detect_speech_ratio_silero(
         audio_f32, sr, global_.silero_model, global_.get_speech_timestamps_fn
     )
-    speaking = speech_ratio >= MIN_SPEECH_RATIO
+    speaking = speech_ratio >= cfg.min_speech_ratio
 
     if not speaking:
         ema = _SESSION_EMA.get(sid, None)
-        score = ema if FREEZE_WHEN_NO_SPEECH else None
+        score = ema if cfg.freeze_when_no_speech else None
         weights = None if score is None else three_state_weights(score)
         return {
             "speaking": False,
             "speech_ratio": float(speech_ratio),
             "fatigue_score_raw": None,
             "fatigue_score": score,
-            "fatigued": bool(score is not None and score >= FATIGUED_THRESHOLD),
+            "fatigued": bool(score is not None and score >= cfg.fatigued_threshold),
             "state_weights": weights,
             "note": "",
         }
@@ -167,11 +151,11 @@ def predict_audio(
     raw = float(global_.model.predict_proba(x.values)[0, 1])
 
     prev = _SESSION_EMA.get(sid, None)
-    ema = raw if prev is None else (1 - EMA_ALPHA) * prev + EMA_ALPHA * raw
+    ema = raw if prev is None else (1 - cfg.ema_alpha) * prev + cfg.ema_alpha * raw
     _SESSION_EMA[sid] = ema
 
-    fatigued = ema >= FATIGUED_THRESHOLD
-    weights = three_state_weights(ema, additive=0.2)
+    fatigued = ema >= cfg.fatigued_threshold
+    weights = three_state_weights(ema)
 
     return {
         "speaking": True,
@@ -221,8 +205,8 @@ def predict_from_source(
 
     sr_used = sr_in
     if resample_to_16k:
-        audio = _resample(audio, sr_in=sr_in, sr_out=SR)
-        sr_used = SR
+        audio = _resample(audio, sr_in=sr_in, sr_out=cfg.sr)
+        sr_used = cfg.sr
 
     core = predict_audio(audio_f32=audio, sr=sr_used, session_id=session_id)
 

@@ -15,9 +15,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-# Silero 本地路径（相对于项目根 httpserver/ 目录）
-SILERO_REPO_DIR = Path("third_party/silero-vad")
-SILERO_JIT_PATH = Path("assets/silero_vad.jit")
+from lib.config import cfg
 
 
 def _ensure_syspath_has(path: Path) -> None:
@@ -57,16 +55,19 @@ def build_silero_vad_local():
         FileNotFoundError : 本地路径缺失时
         ImportError       : 无法导入 utils_vad 时
     """
-    if not SILERO_REPO_DIR.exists():
+    silero_repo_dir = cfg.silero_repo_dir
+    silero_jit_path = cfg.silero_jit_path
+
+    if not silero_repo_dir.exists():
         raise FileNotFoundError(
-            f"Missing {SILERO_REPO_DIR} (expected silero-vad repo here)"
+            f"Missing {silero_repo_dir} (expected silero-vad repo here)"
         )
-    if not SILERO_JIT_PATH.exists():
+    if not silero_jit_path.exists():
         raise FileNotFoundError(
-            f"Missing {SILERO_JIT_PATH} (export silero_vad.jit first)"
+            f"Missing {silero_jit_path} (export silero_vad.jit first)"
         )
 
-    silero_src = SILERO_REPO_DIR / "src"
+    silero_src = silero_repo_dir / "src"
     if not silero_src.exists():
         raise FileNotFoundError(
             f"Missing {silero_src}. Your repo should have third_party/silero-vad/src/"
@@ -83,7 +84,7 @@ def build_silero_vad_local():
             f"  {silero_src / 'silero_vad' / 'utils_vad.py'}"
         ) from e
 
-    model = torch.jit.load(str(SILERO_JIT_PATH))
+    model = torch.jit.load(str(silero_jit_path))
     model.eval()
     return model, get_speech_timestamps
 

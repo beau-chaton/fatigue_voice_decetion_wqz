@@ -1,0 +1,28 @@
+{
+    "server": {
+        "host": "127.0.0.1",
+        "port": 8000
+    },
+    "audio": {
+        "sr": 16000
+    },
+    "vad": {
+        "silero_repo_dir": "third_party/silero-vad",
+        "silero_jit_path": "assets/silero_vad.jit",
+        "min_speech_ratio": 0.12
+    },
+    "model": {
+        "model_path": "sleepy_opensmile_logreg.joblib"
+    },
+    "predict": {
+        "ema_alpha": 0.5,
+        "freeze_when_no_speech": true,
+        "fatigued_threshold": 0.7,
+        "missing_feature_warn_ratio": 0.05
+    },
+    "scoring": {
+        "energetic_threshold": 0.4,
+        "fatigue_threshold": 0.7,
+        "additive": 0.2
+    }
+}

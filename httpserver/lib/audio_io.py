@@ -18,8 +18,7 @@ import requests
 import soundfile as sf
 from scipy.signal import resample_poly
 
-# 目标采样率（全局常量，与 config 保持一致）
-SR = 16000
+from lib.config import cfg
 
 
 def _to_float32(audio: np.ndarray) -> np.ndarray:
@@ -48,8 +47,10 @@ def _ensure_mono(audio: np.ndarray) -> np.ndarray:
     raise ValueError(f"Unsupported audio ndim: {audio.ndim}")
 
 
-def _resample(audio_f32: np.ndarray, sr_in: int, sr_out: int = SR) -> np.ndarray:
+def _resample(audio_f32: np.ndarray, sr_in: int, sr_out: int | None = None) -> np.ndarray:
     """使用 scipy.signal.resample_poly 对音频进行重采样。"""
+    if sr_out is None:
+        sr_out = cfg.sr
     if sr_in == sr_out:
         return audio_f32
     if sr_in <= 0:

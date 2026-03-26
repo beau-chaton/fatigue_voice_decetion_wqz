@@ -7,21 +7,18 @@ lib/model.py
   - get_global_components : 懒加载单例，进程内只初始化一次
 
 依赖：
-  - sleepy_opensmile_logreg.joblib（模型文件，相对路径）
-  - lib.vad.build_silero_vad_local（Silero VAD）
+  - lib.config  : 模型文件路径
+  - lib.vad     : Silero VAD 加载
 """
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import joblib
 import opensmile
 
+from lib.config import cfg
 from lib.vad import build_silero_vad_local
-
-# 模型文件路径（相对于 httpserver/ 启动目录）
-MODEL_PATH = Path("sleepy_opensmile_logreg.joblib")
 
 
 @dataclass
@@ -55,7 +52,7 @@ def get_global_components() -> GlobalComponents:
     if _GLOBAL is not None:
         return _GLOBAL
 
-    bundle = joblib.load(MODEL_PATH)
+    bundle = joblib.load(cfg.model_path)
     model = bundle["model"]
     feature_cols = bundle["feature_cols"]
 

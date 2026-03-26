@@ -22,7 +22,8 @@ import soundfile as sf
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from lib.audio_io import SR, _ensure_mono, _resample, _to_float32
+from lib.audio_io import _ensure_mono, _resample, _to_float32
+from lib.config import cfg
 from lib.model import get_global_components
 from lib.predict import (
     _get_sid,
@@ -117,8 +118,8 @@ async def predict_file(
 
         sr_used = int(sr_in)
         if resample_to_16k:
-            audio_mono = _resample(audio_mono, sr_in=sr_in, sr_out=SR)
-            sr_used = SR
+            audio_mono = _resample(audio_mono, sr_in=sr_in, sr_out=cfg.sr)
+            sr_used = cfg.sr
 
         core = predict_audio(audio_f32=audio_mono, sr=sr_used, session_id=session_id)
 
@@ -151,5 +152,6 @@ def session_reset(req: SessionResetRequest):
 # ─── 直接运行支持 ──────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
+    from lib.config import cfg
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host=cfg.host, port=cfg.port)

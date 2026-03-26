@@ -33,9 +33,9 @@ def audio_sanity_check(audio_f32: np.ndarray) -> tuple[bool, str]:
 
 def three_state_weights(
     fatigue_score: float,
-    low: float = 0.4,
-    high: float = 0.7,
-    additive: float = 0.2,
+    low: float | None = None,
+    high: float | None = None,
+    additive: float | None = None,
 ) -> dict:
     """
     根据 fatigue_score（P(Sleepy) 或其 EMA）计算三段状态权重。
@@ -49,13 +49,22 @@ def three_state_weights(
 
     Args:
         fatigue_score : float in [0, 1]
-        low           : energetic/normal 分界阈值（默认 0.4）
-        high          : normal/fatigue 分界阈值（默认 0.7）
-        additive      : 每个分量加上的基础偏置（默认 0.2）
+        low           : energetic/normal 分界阈值（默认取 config.json）
+        high          : normal/fatigue 分界阈值（默认取 config.json）
+        additive      : 每个分量加上的基础偏置（默认取 config.json）
 
     Returns:
         dict with keys: energetic, normal, fatigue（均为 float，精确到 5 位小数）
     """
+    from lib.config import cfg  # 延迟导入，避免循环依赖
+
+    if low is None:
+        low = cfg.energetic_threshold
+    if high is None:
+        high = cfg.fatigue_threshold
+    if additive is None:
+        additive = cfg.additive
+
     s = float(np.clip(fatigue_score, 0.0, 1.0))
     low = float(low)
     high = float(high)
